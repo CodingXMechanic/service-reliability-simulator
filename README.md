@@ -1,6 +1,6 @@
 # Service Reliability & Testing Simulator
 
-A compact, interview-friendly backend that demonstrates reliability: structured logging, graceful error handling, retries, timeouts, and a test suite.
+A small backend service designed to better understand reliability, using structured logging, defensive error handling, retries, timeouts, and tests.
 
 ## What this project demonstrates
 - Service reliability basics (timeouts, retries)
