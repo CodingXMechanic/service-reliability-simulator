@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Service Reliability — Live Simulator</title>
+    <link rel="icon" href="data:,">
+    <style>
+        /* ----- base & theme ----- */
+        :root {
+            --bg-1: #071029;
+            --bg-2: #061726;
+            --glass: rgba(255,255,255,0.03);
+            --accent: #7dd3fc;
+            --accent-2: #a78bfa;
+            --muted: #97a3b8;
+            --ok: #4ade80;
+            --err: #fb7185;
+            --warn: #f59e0b;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono";
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+            color: #e6eef8;
+            background: radial-gradient(1200px 400px at 10% 10%, rgba(124,58,237,0.08), transparent 10%), linear-gradient(180deg,var(--bg-1),var(--bg-2));
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 28px auto;
+            padding: 18px;
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 18px;
+        }
+
+        /* ----- header ----- */
+        header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 6px
+        }
+
+        .logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 14px;
+            background: linear-gradient(135deg,var(--accent),var(--accent-2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #021124;
+            font-size: 20px;
+            box-shadow: 0 8px 30px rgba(122,77,255,0.08)
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 20px
+        }
+
+        p.lead {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        /* ----- main card ----- */
+        .card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.03);
+            padding: 14px;
+            border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(2,6,23,0.5);
+        }
+
+        .section-title {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 8px
+        }
+
+        /* ----- controls ----- */
+        .controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center
+        }
+
+        input[type=number] {
+            width: 120px;
+            padding: 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.04);
+            background: transparent;
+            color: inherit
+        }
+
+        button {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.04);
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 600
+        }
+
+            button.ghost {
+                background: transparent;
+                border: 1px dashed rgba(255,255,255,0.03);
+                color: var(--muted)
+            }
+
+        .tiny {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        /* ----- status bar & chips ----- */
+        .status-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 10px
+        }
+
+        .chip {
+            padding: 10px 12px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+            font-weight: 700;
+            display: flex;
+            gap: 8px;
+            align-items: center
+        }
+
+            .chip .dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%
+            }
+
+            .chip.ok {
+                color: var(--ok)
+            }
+
+                .chip.ok .dot {
+                    background: var(--ok)
+                }
+
+            .chip.err {
+                color: var(--err)
+            }
+
+                .chip.err .dot {
+                    background: var(--err)
+                }
+
+            .chip.warn {
+                color: var(--warn)
+            }
+
+                .chip.warn .dot {
+                    background: var(--warn)
+                }
+
+        /* ----- sparkline + meta ----- */
+        .meta {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 12px
+        }
+
+        .sparkline {
+            width: 340px;
+            height: 48px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+            border-radius: 8px;
+            padding: 8px
+        }
+
+        canvas.spark {
+            width: 100%;
+            height: 100%;
+            display: block
+        }
+
+        /* ----- live topology ----- */
+        .topo {
+            margin-top: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center
+        }
+
+        .node {
+            width: 84px;
+            height: 64px;
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+            color: var(--muted);
+            border: 1px solid rgba(255,255,255,0.03)
+        }
+
+            .node.live {
+                box-shadow: 0 8px 30px rgba(125,211,252,0.06);
+                color: var(--accent)
+            }
+
+        .link {
+            width: 36px;
+            height: 2px;
+            background: linear-gradient(90deg,var(--accent),var(--accent-2));
+            border-radius: 2px;
+            opacity: 0.85
+        }
+
+        /* ----- logs panel ----- */
+        .logs-panel {
+            height: 640px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column
+        }
+
+        .log-filter {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px
+        }
+
+        .log-view {
+            flex: 1;
+            background: #020617;
+            border-radius: 10px;
+            padding: 12px;
+            font-family: var(--mono);
+            font-size: 12px;
+            overflow: auto;
+            color: #dbeafe;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.01)
+        }
+
+        .log-line {
+            padding: 4px;
+            border-radius: 6px;
+            margin-bottom: 4px
+        }
+
+            .log-line.info {
+                background: linear-gradient(90deg, rgba(255,255,255,0.01), transparent)
+            }
+
+            .log-line.warn {
+                background: linear-gradient(90deg, rgba(255,255,255,0.01), rgba(245,158,11,0.04))
+            }
+
+            .log-line.err {
+                background: linear-gradient(90deg, rgba(255,255,255,0.01), rgba(251,113,133,0.04))
+            }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        /* ----- footer/status ----- */
+        footer {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center
+        }
+
+        /* ===== animations ===== */
+        .glow {
+            animation: hue 6s linear infinite;
+        }
+
+        @keyframes hue {
+            0% {
+                filter: drop-shadow(0 6px 16px rgba(125,211,252,0.06))
+            }
+
+            50% {
+                filter: drop-shadow(0 12px 34px rgba(167,139,250,0.06))
+            }
+
+            100% {
+                filter: drop-shadow(0 6px 16px rgba(125,211,252,0.06))
+            }
+        }
+
+        /* responsive */
+        @media (max-width:1000px) {
+            .container {
+                grid-template-columns: 1fr
+            }
+
+            .sparkline {
+                width: 100%
+            }
+        }
+    </style>
+</head>
+<body>
+    <div style="max-width:1200px;margin:8px auto;padding:12px;">
+        <header style="display:flex;align-items:center;gap:12px;">
+            <div class="logo glow">SR</div>
+            <div>
+                <h1>Service Reliability — Live Simulator</h1>
+                <p class="lead">Futuristic demo surface: retries, timeouts, structured logs. No backend changes required.</p>
+            </div>
+            <div style="margin-left:auto" class="tiny muted">Local demo • <span id="clock"></span></div>
+        </header>
+    </div>
+
+    <div class="container">
+        <!-- LEFT -->
+        <div>
+            <div class="card">
+                <div class="section-title">Control Panel</div>
+
+                <div class="controls">
+                    <button id="btnHealth">GET /health</button>
+                    <div style="width:8px"></div>
+
+                    <label style="display:flex;align-items:center;gap:8px;">
+                        <span class="tiny muted">value</span>
+                        <input id="valProcess" type="number" value="3" step="0.1" />
+                    </label>
+                    <button id="btnProcess">POST /process</button>
+                    <button id="btnProcessBad" class="ghost">POST invalid</button>
+
+                    <div style="flex:1"></div>
+
+                    <button id="btnUnstable">GET /unstable</button>
+                    <button id="btnUnstable5" class="ghost">Hit 5x</button>
+                </div>
+
+                <div class="status-row">
+                    <div class="chip ok"> <div class="dot"></div> OK <span id="okCount" style="margin-left:8px">0</span></div>
+                    <div class="chip err"> <div class="dot"></div> ERR <span id="errCount" style="margin-left:8px">0</span></div>
+                    <div class="chip warn"> <div class="dot"></div> TIMEOUT <span id="toCount" style="margin-left:8px">0</span></div>
+                    <div style="flex:1"></div>
+                    <div class="tiny muted">Polling logs: <span id="interval">1s</span></div>
+                </div>
+
+                <div class="meta">
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <div class="tiny muted">Uptime</div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <div style="height:12px;background:rgba(255,255,255,0.03);border-radius:6px;width:220px;overflow:hidden;">
+                                <div id="uptimeBar" style="height:100%;width:6%;background:linear-gradient(90deg,var(--accent),var(--accent-2));"></div>
+                            </div>
+                            <div id="uptimeText" class="tiny muted">0s</div>
+                        </div>
+                    </div>
+
+                    <div style="flex:1"></div>
+
+                    <div class="sparkline card" title="Requests over time">
+                        <canvas id="spark" class="spark"></canvas>
+                    </div>
+                </div>
+
+                <div class="topo">
+                    <div class="node live">
+                        API
+                        <div style="font-size:11px;margin-top:6px;color:var(--muted)" id="apiLatency">— ms</div>
+                    </div>
+                    <div class="link"></div>
+                    <div class="node">
+                        Downstream
+                        <div style="font-size:11px;margin-top:6px;color:var(--muted)" id="downStatus">ok</div>
+                    </div>
+                    <div style="flex:1"></div>
+                    <div style="text-align:right" class="tiny muted">Simulated flow</div>
+                </div>
+            </div>
+
+            <div style="height:12px"></div>
+
+            <div class="card">
+                <div class="section-title">Response / Terminal</div>
+                <pre id="raw" style="background:#020617;border-radius:8px;padding:12px;height:160px;overflow:auto;font-family:var(--mono);font-size:13px">No calls yet.</pre>
+                <div style="height:10px"></div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <button id="copyRaw" class="ghost">Copy</button>
+                    <div class="tiny muted">Use the terminal to inspect last raw response</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: logs -->
+        <div>
+            <div class="card logs-panel">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                        <div class="section-title">Live Logs</div>
+                        <div class="tiny muted">Streaming from <code>logs/service.log</code> via proxy</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <label class="tiny muted">Filter:</label>
+                        <select id="filterLevel">
+                            <option value="all">all</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                        <button id="clearFilter" class="ghost">Reset</button>
+                    </div>
+                </div>
+
+                <div class="log-filter">
+                    <input id="search" placeholder="search logs..." style="flex:1;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit">
+                    <button id="download" class="ghost">Download</button>
+                </div>
+
+                <div id="logView" class="log-view"></div>
+
+                <footer>
+                    <div class="tiny muted">Last update: <span id="lastUpdate">never</span></div>
+                    <div class="tiny muted">Lines: <span id="lineCount">0</span></div>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <script>
+/* ===========================
+   Helper utilities & state
+   =========================== */
+const POLL_INTERVAL = 1000;   // 1s
+const LOG_ENDPOINT = '/api/logs';
+const API_PREFIX = '/api';
+
+let state = {
+  lastText: '',
+  lines: [],
+  ok:0, err:0, to:0,
+  sparkPoints: [],
+  uptimeSeconds: 0
+};
+
+/* -------------------------
+   DOM elements
+   ------------------------- */
+const rawEl = document.getElementById('raw');
+const logView = document.getElementById('logView');
+const lastUpdate = document.getElementById('lastUpdate');
+const lineCount = document.getElementById('lineCount');
+const okCount = document.getElementById('okCount');
+const errCount = document.getElementById('errCount');
+const toCount = document.getElementById('toCount');
+const uptimeBar = document.getElementById('uptimeBar');
+const uptimeText = document.getElementById('uptimeText');
+const apiLatency = document.getElementById('apiLatency');
+const downStatus = document.getElementById('downStatus');
+const sparkCanvas = document.getElementById('spark');
+const filterLevel = document.getElementById('filterLevel');
+const searchInput = document.getElementById('search');
+
+/* -------------------------
+   Fetch & parsing
+   ------------------------- */
+async function fetchLogs() {
+  try {
+    // cache-busting
+    const res = await fetch(LOG_ENDPOINT + '?ts=' + Date.now(), {cache:'no-store'});
+    const txt = await res.text();
+    // If identical, skip heavy parsing but still update timestamp
+    if (txt === state.lastText) {
+      lastUpdate.textContent = new Date().toLocaleTimeString();
+      return;
+    }
+    state.lastText = txt;
+    // split safely by newlines and attempt to parse each line as JSON
+    const rawLines = txt.split(/\r?\n/).filter(Boolean);
+    const parsed = rawLines.map((l, idx) => {
+      try { return { raw: l, obj: JSON.parse(l) }; }
+      catch (e) { return { raw: l, obj: null }; }
+    });
+    state.lines = parsed;
+    processStats(parsed);
+    renderLogs();
+  } catch (err) {
+    // show error in log view
+    renderError('Failed to fetch logs: ' + err);
+  }
+}
+
+function renderError(text){
+  logView.innerHTML = `<div class="log-line err">${escapeHtml(text)}</div>`;
+  lastUpdate.textContent = new Date().toLocaleTimeString();
+}
+
+/* -------------------------
+   Stats & sparkline
+   ------------------------- */
+function processStats(parsed){
+  // Reset
+  state.ok = 0; state.err = 0; state.to = 0;
+  const counts = [];
+  // Look for status codes, endpoint labels, or 'operation timed out'
+  parsed.forEach(p => {
+    const s = p.obj;
+    if (s && s.level) {
+      const lvl = s.level.toUpperCase();
+      if (lvl === 'INFO') state.ok++;
+      else if (lvl === 'WARNING') state.err++; // treat warnings as errors for counting
+      else if (lvl === 'ERROR') state.err++;
+    }
+    // simple heuristic for timeouts
+    if (p.raw && p.raw.toLowerCase().includes('timed out')) state.to++;
+    // for sparkline, push 1 for any request line, else 0
+    counts.push(1);
+  });
+  okCount.textContent = state.ok;
+  errCount.textContent = state.err;
+  toCount.textContent = state.to;
+
+  // maintain spark points (last 40)
+  state.sparkPoints.push(counts.length);
+  if (state.sparkPoints.length > 40) state.sparkPoints.shift();
+  drawSpark();
+}
+
+/* -------------------------
+   Render logs to DOM
+   ------------------------- */
+function renderLogs(){
+  const lvl = filterLevel.value;
+  const q = searchInput.value.trim().toLowerCase();
+  logView.innerHTML = '';
+  const toShow = state.lines.slice(-300).reverse(); // show newest first
+  let displayed = 0;
+  for (const p of toShow){
+    let cls = 'info';
+    let text = p.raw;
+    if (p.obj && p.obj.level) {
+      const L = (p.obj.level||'').toUpperCase();
+      if (L === 'ERROR') cls = 'err';
+      else if (L === 'WARNING') cls = 'warn';
+    } else {
+      // fallback parse for 'timed out' etc
+      if (/timed out/i.test(text)) cls = 'err';
+    }
+    if (lvl !== 'all'){
+      if (!p.obj || p.obj.level !== lvl) continue;
+    }
+    if (q && text.toLowerCase().indexOf(q) === -1) continue;
+
+    const div = document.createElement('div');
+    div.className = 'log-line ' + cls;
+    div.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px">
+                      <div style="flex:1">${escapeHtml(text)}</div>
+                      <div style="color:var(--muted);font-size:11px">${getShortTimestamp(p.obj)}</div>
+                    </div>`;
+    logView.appendChild(div);
+    displayed++;
+    if (displayed >= 200) break;
+  }
+  lineCount.textContent = state.lines.length;
+  lastUpdate.textContent = new Date().toLocaleTimeString();
+}
+
+/* -------------------------
+   Utilities
+   ------------------------- */
+function getShortTimestamp(obj){
+  if (!obj) return '';
+  if (obj.timestamp) return obj.timestamp.replace('T',' ').replace('Z','');
+  return '';
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;', '`':'&#96;'})[c]); }
+
+/* -------------------------
+   Sparkline drawing
+   ------------------------- */
+function drawSpark(){
+  const canvas = sparkCanvas;
+  const ctx = canvas.getContext('2d');
+  // resize for DPI
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(w * ratio);
+  canvas.height = Math.floor(h * ratio);
+  ctx.scale(ratio, ratio);
+  // clear
+  ctx.clearRect(0,0,w,h);
+  ctx.lineWidth = 2;
+  // compute points
+  const pts = state.sparkPoints.slice(-40);
+  const max = Math.max(...pts,1);
+  const pad = 6;
+  const innerW = w - pad*2;
+  const innerH = h - pad*2;
+  ctx.beginPath();
+  for (let i=0;i<pts.length;i++){
+    const x = pad + (i/(Math.max(1,pts.length-1))) * innerW;
+    const y = pad + innerH * (1 - (pts[i]/max));
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  // stroke gradient
+  const grad = ctx.createLinearGradient(0,0,w,0);
+  grad.addColorStop(0, 'rgba(125,211,252,0.9)');
+  grad.addColorStop(1, 'rgba(167,139,250,0.9)');
+  ctx.strokeStyle = grad;
+  ctx.stroke();
+}
+
+/* -------------------------
+   API helpers
+   ------------------------- */
+async function apiFetch(path, opts){
+  try {
+    const res = await fetch(API_PREFIX + path);
+    const text = await res.text();
+    try { return { ok: res.ok, status: res.status, body: JSON.parse(text), raw: text }; }
+    catch(e) { return { ok: res.ok, status: res.status, body: null, raw: text }; }
+  } catch (err) { return { ok:false, status:0, raw: String(err) }; }
+}
+
+/* -------------------------
+   Actions wired to buttons
+   ------------------------- */
+document.getElementById('btnHealth').addEventListener('click', async () => {
+  rawEl.textContent = 'fetching /health...';
+  const r = await apiFetch('/health');
+  rawEl.textContent = JSON.stringify({status:r.status, body:r.body || r.raw}, null, 2);
+  // update uptime
+  if (r.body && r.body.uptime_seconds !== undefined) {
+    state.uptimeSeconds = Number(r.body.uptime_seconds);
+    uptimeText.textContent = `${state.uptimeSeconds}s`;
+    const pct = Math.min(100, 6 + Math.log1p(state.uptimeSeconds) * 6);
+    uptimeBar.style.width = pct + '%';
+  }
+  // update api latency demo (quick ping)
+  const t0 = performance.now();
+  await fetch(API_PREFIX + '/health', {cache:'no-store'}).catch(()=>{});
+  apiLatency.textContent = Math.round(performance.now()-t0) + ' ms';
+});
+
+document.getElementById('btnProcess').addEventListener('click', async () => {
+  const v = Number(document.getElementById('valProcess').value);
+  rawEl.textContent = 'POST /process ...';
+  try {
+    const res = await fetch(API_PREFIX + '/process', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({value:v})});
+    const text = await res.text();
+    try { rawEl.textContent = JSON.stringify(JSON.parse(text), null, 2); } catch { rawEl.textContent = text; }
+  } catch (e) { rawEl.textContent = e; }
+});
+
+document.getElementById('btnProcessBad').addEventListener('click', async () => {
+  rawEl.textContent = 'POST /process (invalid) ...';
+  try {
+    const res = await fetch(API_PREFIX + '/process', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({value:'x'})});
+    const text = await res.text();
+    rawEl.textContent = JSON.stringify({status:res.status, body: (()=>{ try{return JSON.parse(text)}catch{return text}})() }, null,2);
+  } catch (e) { rawEl.textContent = e; }
+});
+
+document.getElementById('btnUnstable').addEventListener('click', async () => {
+  rawEl.textContent = 'GET /unstable ...';
+  const res = await fetch(API_PREFIX + '/unstable');
+  const text = await res.text();
+  rawEl.textContent = JSON.stringify({status:res.status, body: (()=>{try{return JSON.parse(text)}catch{return text}})()}, null,2);
+});
+
+document.getElementById('btnUnstable5').addEventListener('click', async () => {
+  rawEl.textContent = 'Hitting /unstable 5x ...';
+  const results = [];
+  for (let i=0;i<5;i++){
+    const r = await fetch(API_PREFIX + '/unstable');
+    const t = await r.text();
+    let b;
+    try { b = JSON.parse(t); } catch { b = t; }
+    results.push({status:r.status, body:b});
+  }
+  rawEl.textContent = JSON.stringify(results, null, 2);
+});
+
+/* -------------------------
+   UI helpers & events
+   ------------------------- */
+document.getElementById('copyRaw').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(rawEl.textContent); alert('copied to clipboard'); }
+  catch(e){ alert('copy failed'); }
+});
+document.getElementById('download').addEventListener('click', () => {
+  const a = document.createElement('a'), blob = new Blob([state.lastText || ''], {type:'text/plain'});
+  a.href = URL.createObjectURL(blob); a.download='service.log'; a.click();
+});
+document.getElementById('clearFilter').addEventListener('click', () => { filterLevel.value='all'; searchInput.value=''; renderLogs(); });
+
+/* -------------------------
+   Polling loop
+   ------------------------- */
+let pollTimer = null;
+async function startPolling(){
+  await fetchLogs();
+  pollTimer = setInterval(fetchLogs, POLL_INTERVAL);
+}
+startPolling();
+
+/* -------------------------
+   Clock & heartbeat
+   ------------------------- */
+setInterval(()=> { document.getElementById('clock').textContent = new Date().toLocaleString(); }, 1000);
+
+/* -------------------------
+   Spark canvas resize on window
+   ------------------------- */
+window.addEventListener('resize', drawSpark);
+
+/* ===========================
+   Initial draw
+   =========================== */
+drawSpark();
+
+    </script>
+</body>
+</html>
